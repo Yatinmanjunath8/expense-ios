@@ -30,8 +30,8 @@ jobs:
 
       - name: Build Unsigned App
         run: |
-          xcodebuild -workspace ios/expenseios.xcworkspace \
-            -scheme expenseios \
+          xcodebuild -workspace ios/ExpenseTracker.xcworkspace \
+            -scheme ExpenseTracker \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -43,11 +43,11 @@ jobs:
         run: |
           cd build/Build/Products/Release-iphoneos
           mkdir Payload
-          cp -r expenseios.app Payload/
-          zip -r expenseios.ipa Payload
+          cp -r ExpenseTracker.app Payload/
+          zip -r ExpenseTracker.ipa Payload
           
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ExpenseTracker-IPA
-          path: build/Build/Products/Release-iphoneos/expenseios.ipa
+          path: build/Build/Products/Release-iphoneos/ExpenseTracker.ipa
