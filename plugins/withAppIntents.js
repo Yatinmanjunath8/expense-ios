@@ -9,7 +9,7 @@ const withAppIntents = (config) => {
     const projectName = config.modRequest.projectName;
     
     const srcPath = path.join(projectRoot, 'ios-src', 'AddExpenseIntent.swift');
-    const destPath = path.join(projectRoot, 'ios', projectName, 'AddExpenseIntent.swift');
+    const destPath = path.join(projectRoot, 'ios', 'AddExpenseIntent.swift');
     
     if (!fs.existsSync(srcPath)) {
       console.warn('AddExpenseIntent.swift not found');
