@@ -102,3 +102,16 @@ export const deleteExpense = async (id: string) => {
     throw error;
   }
 };
+
+export const updateExpense = async (id: string, updatedData: Partial<Expense>) => {
+  try {
+    const expenses = await getExpenses();
+    const updatedExpenses = expenses.map((e) => 
+      e.id === id ? { ...e, ...updatedData } : e
+    );
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedExpenses));
+  } catch (error) {
+    console.error('Error updating expense:', error);
+    throw error;
+  }
+};

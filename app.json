@@ -46,6 +46,7 @@
           }
         }
       ],
+      "expo-notifications",
       "./plugins/withAppIntents.js"
     ]
   }

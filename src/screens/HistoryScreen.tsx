@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, useColorScheme, Alert } from 'react-native';
+import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, useColorScheme, Alert, Modal, TextInput, Platform } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { getExpenses, getCategories, deleteExpense, Expense, CategoryItem } from '../store/ExpenseStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { getExpenses, getCategories, deleteExpense, updateExpense, Expense, CategoryItem } from '../store/ExpenseStore';
 import { getTheme } from '../theme/Theme';
 
 export default function HistoryScreen() {
@@ -12,6 +13,14 @@ export default function HistoryScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [activeDate, setActiveDate] = useState(new Date());
+  
+  // Edit State
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDate, setEditDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   const isFocused = useIsFocused();
 
   const changeMonth = (offset: number) => {
@@ -32,13 +41,32 @@ export default function HistoryScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Expense', 'Are you sure?', [
+    Alert.alert('Expense Options', 'What would you like to do?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         await deleteExpense(id);
         loadData();
       }}
     ]);
+  };
+
+  const openEdit = (item: Expense) => {
+    setEditingExpense(item);
+    setEditAmount(item.amount);
+    setEditDescription(item.description || '');
+    setEditDate(new Date(item.date));
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingExpense) {
+      await updateExpense(editingExpense.id, {
+        amount: editAmount,
+        description: editDescription,
+        date: editDate.toISOString(),
+      });
+      setEditingExpense(null);
+      loadData();
+    }
   };
 
   const renderExpense = ({ item }: { item: Expense }) => {
@@ -50,7 +78,11 @@ export default function HistoryScreen() {
     const icon = catObj?.icon || 'pricetag';
 
     return (
-      <TouchableOpacity style={[styles.expenseItem, { backgroundColor: theme.card }]} onLongPress={() => handleDelete(item.id)}>
+      <TouchableOpacity 
+        style={[styles.expenseItem, { backgroundColor: theme.card }]} 
+        onPress={() => openEdit(item)}
+        onLongPress={() => handleDelete(item.id)}
+      >
         <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
           <Ionicons name={icon as any} size={20} color={color} />
         </View>
@@ -96,6 +128,40 @@ export default function HistoryScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={<Text style={{ textAlign: 'center', color: theme.textSecondary, marginTop: 50 }}>No history.</Text>}
       />
+
+      <Modal visible={!!editingExpense} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setEditingExpense(null)}><Text style={{ color: theme.primary, fontSize: 18 }}>Cancel</Text></TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Expense</Text>
+            <TouchableOpacity onPress={handleSaveEdit}><Text style={{ color: theme.primary, fontSize: 18, fontWeight: 'bold' }}>Save</Text></TouchableOpacity>
+          </View>
+          
+          <View style={{ padding: 20 }}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Amount (₹)</Text>
+            <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={editAmount} onChangeText={setEditAmount} />
+            
+            <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>Description</Text>
+            <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editDescription} onChangeText={setEditDescription} />
+            
+            <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>Date</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center', borderColor: theme.border }]} onPress={() => setShowDatePicker(true)}>
+              <Text style={{ color: theme.text, fontSize: 16 }}>{editDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={editDate}
+                mode="date"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  setShowDatePicker(Platform.OS === 'ios');
+                  if (selectedDate) setEditDate(selectedDate);
+                }}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -115,4 +181,8 @@ const styles = StyleSheet.create({
   expenseDescription: { fontSize: 14, marginBottom: 4 },
   expenseDate: { fontSize: 13 },
   expenseAmount: { fontSize: 18, fontWeight: '700' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#333' },
+  modalTitle: { fontSize: 20, fontWeight: '700' },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  input: { fontSize: 16, padding: 16, borderRadius: 12, borderWidth: 1, minHeight: 56 },
 });
