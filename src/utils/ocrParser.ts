@@ -3,9 +3,20 @@ export const parseAmountFromText = (blocks: any[]): string => {
 
   let bestMatch = '';
   let maxScore = -1000000;
+  
+  const fullText = blocks.map(b => b.text).join('\n');
+  const isPhonePe = /phonepe/i.test(fullText);
 
   for (const block of blocks) {
-    const text = block.text.trim();
+    let text = block.text.trim();
+    
+    // PhonePe specific OCR Rupee symbol fix
+    // The ₹ symbol in PhonePe's font is frequently misread as a '7'.
+    // If we are on a PhonePe receipt and there's no explicit currency symbol,
+    // we strip the leading 7 from numbers. (e.g. "730" -> "30", "7750" -> "750").
+    if (isPhonePe && !/(?:₹|Rs|INR)/i.test(text)) {
+      text = text.replace(/(^|\s)7\s?(\d{1,7}(?:,\d+)*(?:\.\d{2})?)(?=\s|$)/g, '$1$2');
+    }
     
     // Extract the first clean number from the text
     const numRegex = /\d+(?:,\d+)*(?:\.\d+)?/;

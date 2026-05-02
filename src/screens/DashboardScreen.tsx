@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, TextInput, Button, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator, SafeAreaView, Modal, TextInput, Button, Image, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { PieChart, BarChart } from 'react-native-chart-kit';
-import { getExpenses, saveExpense, Expense } from '../store/ExpenseStore';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { getExpenses, saveExpense, Expense, getCategories, addCategory, CategoryItem } from '../store/ExpenseStore';
 import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
 
 const screenWidth = Dimensions.get("window").width;
@@ -21,10 +23,9 @@ const chartConfig = {
   fillShadowGradientTo: '#43A047',
 };
 
-const PIE_COLORS = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-
 export default function DashboardScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const isFocused = useIsFocused();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -35,16 +36,48 @@ export default function DashboardScreen() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [utr, setUtr] = useState('');
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
       loadExpenses();
+      loadCategories();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    const handleDeepLink = (event: Linking.EventType) => {
+      const { url } = event;
+      if (url.includes('expensetracker://add')) {
+        const parsed = Linking.parse(url);
+        const imagePath = parsed.queryParams?.image as string;
+        if (imagePath) {
+          const formattedUri = imagePath.startsWith('file://') ? imagePath : `file://${imagePath}`;
+          processImage(formattedUri);
+        }
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [categories]);
 
   const loadExpenses = async () => {
     const data = await getExpenses();
     setExpenses(data);
+  };
+
+  const loadCategories = async () => {
+    const data = await getCategories();
+    setCategories(data);
   };
 
   const handleImportPhotos = async () => {
@@ -74,6 +107,7 @@ export default function DashboardScreen() {
       const extractedUtr = parseUtrFromText(result.blocks);
       setAmount(extractedAmount);
       setUtr(extractedUtr);
+      if (categories.length > 0) setCategory(categories[0].name);
       setShowModal(true);
     } catch (e) {
       console.error('OCR Error:', e);
@@ -85,9 +119,31 @@ export default function DashboardScreen() {
 
   const handleSave = async () => {
     if (!amount) return;
-    await saveExpense({ amount, description, category: category || 'Other', utr: utr || undefined, imageUri: currentImageUri || undefined });
-    setAmount(''); setDescription(''); setCategory(''); setUtr(''); setCurrentImageUri(null); setShowModal(false);
+    await saveExpense({ amount, description, category: category || 'Other', utr: utr || undefined, imageUri: currentImageUri || undefined, date: date.toISOString() });
+    setAmount(''); setDescription(''); setCategory(''); setUtr(''); setCurrentImageUri(null); setDate(new Date()); setShowModal(false);
     loadExpenses();
+  };
+
+  const handleAddCustomCategory = () => {
+    Alert.prompt(
+      "New Category",
+      "Enter a name for the new category",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Add", 
+          onPress: async (name) => {
+            if (name && name.trim()) {
+              const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+              await addCategory(name.trim(), randomColor);
+              await loadCategories();
+              setCategory(name.trim());
+            }
+          }
+        }
+      ],
+      "plain-text"
+    );
   };
 
   // Analytics Calculations
@@ -104,19 +160,35 @@ export default function DashboardScreen() {
   }, [expenses]);
 
   const pieData = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Filter expenses to current month only
+    const currentMonthExpenses = expenses.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
     const categoryTotals: Record<string, number> = {};
-    expenses.forEach(e => {
+    currentMonthExpenses.forEach(e => {
       const cat = e.category || 'Other';
       categoryTotals[cat] = (categoryTotals[cat] || 0) + (parseFloat(e.amount) || 0);
     });
-    return Object.keys(categoryTotals).map((cat, idx) => ({
-      name: cat,
-      population: categoryTotals[cat],
-      color: PIE_COLORS[idx % PIE_COLORS.length],
-      legendFontColor: "#7F7F7F",
-      legendFontSize: 12
-    })).filter(d => d.population > 0);
-  }, [expenses]);
+    
+    return Object.keys(categoryTotals).map((catName) => {
+      const catObj = categories.find(c => c.name === catName);
+      // Fallback color if category is missing or 'Other'
+      const color = catObj ? catObj.color : '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+      return {
+        name: catName,
+        population: categoryTotals[catName],
+        color: color,
+        legendFontColor: "#7F7F7F",
+        legendFontSize: 12
+      };
+    }).filter(d => d.population > 0);
+  }, [expenses, categories]);
 
   const barData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -171,7 +243,7 @@ export default function DashboardScreen() {
         {/* Charts */}
         {expenses.length > 0 ? (
           <>
-            <Text style={styles.chartTitle}>Expenses by Category</Text>
+            <Text style={styles.chartTitle}>This Month's Categories</Text>
             <View style={styles.chartContainer}>
               <PieChart
                 data={pieData}
@@ -227,12 +299,23 @@ export default function DashboardScreen() {
                 value={amount}
                 onChangeText={setAmount}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Category (e.g. Food, Travel)"
-                value={category}
-                onChangeText={setCategory}
-              />
+              <Text style={styles.sectionLabel}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+                {categories.map((cat) => (
+                  <TouchableOpacity 
+                    key={cat.id} 
+                    style={[styles.categoryChip, { backgroundColor: category === cat.name ? cat.color : '#F0F0F0' }]}
+                    onPress={() => setCategory(cat.name)}
+                  >
+                    <Text style={[styles.categoryChipText, { color: category === cat.name ? '#FFF' : '#333' }]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity style={[styles.categoryChip, { backgroundColor: '#E0E0E0' }]} onPress={handleAddCustomCategory}>
+                  <Text style={[styles.categoryChipText, { color: '#333' }]}>+ New</Text>
+                </TouchableOpacity>
+              </ScrollView>
               <TextInput
                 style={styles.input}
                 placeholder="UTR / Transaction ID (Optional)"
@@ -245,6 +328,23 @@ export default function DashboardScreen() {
                 value={description}
                 onChangeText={setDescription}
               />
+              <Text style={styles.sectionLabel}>Date</Text>
+              <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+                <Text style={styles.datePickerText}>{date.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              
+              {showDatePicker && (
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="default"
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) setDate(selectedDate);
+                  }}
+                />
+              )}
+
               <View style={styles.buttonRow}>
                 <Button title="Cancel" onPress={() => setShowModal(false)} color="#E53935" />
                 <Button title="Save Expense" onPress={handleSave} color="#43A047" />
@@ -273,5 +373,11 @@ const styles = StyleSheet.create({
   modalContent: { flexGrow: 1, padding: 20, justifyContent: 'center' },
   previewImage: { width: '100%', height: 300, resizeMode: 'contain', marginBottom: 20, borderRadius: 12, backgroundColor: '#E0E0E0' },
   input: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 16, fontSize: 16, borderWidth: 1, borderColor: '#E0E0E0', color: '#333' },
+  sectionLabel: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8, marginLeft: 4 },
+  categoryScroll: { marginBottom: 16 },
+  categoryChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10, alignSelf: 'flex-start' },
+  categoryChipText: { fontSize: 14, fontWeight: '600' },
+  datePickerButton: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E0E0E0' },
+  datePickerText: { fontSize: 16, color: '#333' },
   buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20 },
 });
