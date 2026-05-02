@@ -11,7 +11,14 @@ export default function HistoryScreen() {
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [activeDate, setActiveDate] = useState(new Date());
   const isFocused = useIsFocused();
+
+  const changeMonth = (offset: number) => {
+    const newDate = new Date(activeDate);
+    newDate.setMonth(newDate.getMonth() + offset);
+    setActiveDate(newDate);
+  };
 
   useEffect(() => {
     if (isFocused) {
@@ -61,17 +68,24 @@ export default function HistoryScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>History</Text>
         <View style={styles.monthSelector}>
-          <Ionicons name="chevron-back" size={20} color={theme.primary} />
-          <View style={{ alignItems: 'center', marginHorizontal: 16 }}>
-            <Text style={[styles.monthText, { color: theme.text }]}>{new Date().toLocaleDateString('en-GB', { month: 'long' })}</Text>
-            <Text style={[styles.yearText, { color: theme.textSecondary }]}>{new Date().getFullYear()}</Text>
+          <TouchableOpacity onPress={() => changeMonth(-1)}>
+            <Ionicons name="chevron-back" size={24} color={theme.primary} />
+          </TouchableOpacity>
+          <View style={{ alignItems: 'center', marginHorizontal: 16, width: 100 }}>
+            <Text style={[styles.monthText, { color: theme.text }]}>{activeDate.toLocaleDateString('en-GB', { month: 'long' })}</Text>
+            <Text style={[styles.yearText, { color: theme.textSecondary }]}>{activeDate.getFullYear()}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+          <TouchableOpacity onPress={() => changeMonth(1)}>
+            <Ionicons name="chevron-forward" size={24} color={theme.primary} />
+          </TouchableOpacity>
         </View>
       </View>
 
       <FlatList
-        data={expenses}
+        data={expenses.filter(e => {
+          const d = new Date(e.date);
+          return d.getMonth() === activeDate.getMonth() && d.getFullYear() === activeDate.getFullYear();
+        })}
         keyExtractor={(item) => item.id}
         renderItem={renderExpense}
         contentContainerStyle={styles.list}

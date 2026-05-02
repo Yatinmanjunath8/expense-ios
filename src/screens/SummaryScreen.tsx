@@ -14,7 +14,14 @@ export default function SummaryScreen() {
   
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [activeDate, setActiveDate] = useState(new Date());
   const isFocused = useIsFocused();
+
+  const changeMonth = (offset: number) => {
+    const newDate = new Date(activeDate);
+    newDate.setMonth(newDate.getMonth() + offset);
+    setActiveDate(newDate);
+  };
 
   useEffect(() => {
     if (isFocused) {
@@ -28,9 +35,8 @@ export default function SummaryScreen() {
   };
 
   const { currentMonthTotal, pieData, categoryTotals } = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    const currentMonth = activeDate.getMonth();
+    const currentYear = activeDate.getFullYear();
     
     const currentMonthExpenses = expenses.filter(e => {
         const d = new Date(e.date);
@@ -57,7 +63,7 @@ export default function SummaryScreen() {
     }).filter(d => d.population > 0);
 
     return { currentMonthTotal: totalSpent, pieData: pData, categoryTotals: totals, count: currentMonthExpenses.length };
-  }, [expenses, categories, theme]);
+  }, [expenses, categories, theme, activeDate]);
 
   const barData = useMemo(() => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -117,12 +123,16 @@ export default function SummaryScreen() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Summary</Text>
           <View style={styles.monthSelector}>
-            <Ionicons name="chevron-back" size={20} color={theme.primary} />
-            <View style={{ alignItems: 'center', marginHorizontal: 16 }}>
-              <Text style={[styles.monthText, { color: theme.text }]}>{new Date().toLocaleDateString('en-GB', { month: 'long' })}</Text>
-              <Text style={[styles.yearText, { color: theme.textSecondary }]}>{new Date().getFullYear()}</Text>
+            <TouchableOpacity onPress={() => changeMonth(-1)}>
+              <Ionicons name="chevron-back" size={24} color={theme.primary} />
+            </TouchableOpacity>
+            <View style={{ alignItems: 'center', marginHorizontal: 16, width: 100 }}>
+              <Text style={[styles.monthText, { color: theme.text }]}>{activeDate.toLocaleDateString('en-GB', { month: 'long' })}</Text>
+              <Text style={[styles.yearText, { color: theme.textSecondary }]}>{activeDate.getFullYear()}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+            <TouchableOpacity onPress={() => changeMonth(1)}>
+              <Ionicons name="chevron-forward" size={24} color={theme.primary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -147,6 +157,7 @@ export default function SummaryScreen() {
                   accessor={"population"}
                   backgroundColor={"transparent"}
                   paddingLeft={"0"}
+                  center={[(screenWidth - 80) / 4, 0]}
                   hasLegend={false}
                   absolute
                 />

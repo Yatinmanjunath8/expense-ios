@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { getCategories, saveExpense, addCategory, CategoryItem } from '../store/ExpenseStore';
+import { getCategories, getExpenses, saveExpense, addCategory, CategoryItem, Expense } from '../store/ExpenseStore';
 import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
 import { getTheme } from '../theme/Theme';
 
@@ -23,6 +23,7 @@ export default function AddExpenseScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
+  const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
 
   useEffect(() => {
     if (isFocused) {
@@ -59,6 +60,19 @@ export default function AddExpenseScreen() {
     if (!category && data.length > 0) {
       setCategory(data[0].name);
     }
+    
+    // Calculate current month total
+    const allExpenses = await getExpenses();
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const total = allExpenses
+      .filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    setCurrentMonthTotal(total);
   };
 
   const handleImportPhotos = async () => {
@@ -124,7 +138,10 @@ export default function AddExpenseScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
-            <Text style={[styles.title, { color: theme.text }]}>Add Expense</Text>
+            <View>
+              <Text style={[styles.title, { color: theme.text }]}>Add Expense</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>This Month: ₹{currentMonthTotal.toFixed(0)}</Text>
+            </View>
             <TouchableOpacity onPress={handleImportPhotos} disabled={isProcessing}>
               <Ionicons name="camera" size={28} color={theme.primary} />
             </TouchableOpacity>
@@ -218,6 +235,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 100 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 10 },
   title: { fontSize: 32, fontWeight: '800' },
+  subtitle: { fontSize: 14, fontWeight: '600', marginTop: 4 },
   previewImage: { width: '100%', height: 150, borderRadius: 16, marginBottom: 20 },
   card: { borderRadius: 20, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },

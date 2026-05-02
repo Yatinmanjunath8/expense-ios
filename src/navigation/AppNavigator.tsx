@@ -10,9 +10,6 @@ import { getTheme } from '../theme/Theme';
 
 const Tab = createBottomTabNavigator();
 
-// Empty placeholder for settings tab
-const SettingsPlaceholder = () => <View style={{ flex: 1, backgroundColor: '#F8F9FA' }} />;
-
 export default function AppNavigator() {
   const isDarkMode = useColorScheme() === 'dark';
   const theme = getTheme(isDarkMode);
@@ -45,7 +42,6 @@ export default function AppNavigator() {
         <Tab.Screen name="Add" component={AddExpenseScreen} />
         <Tab.Screen name="History" component={HistoryScreen} />
         <Tab.Screen name="Summary" component={SummaryScreen} />
-        <Tab.Screen name="Settings" component={SettingsPlaceholder} />
       </Tab.Navigator>
     </NavigationContainer>
   );
