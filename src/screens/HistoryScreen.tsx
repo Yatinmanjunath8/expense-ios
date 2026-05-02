@@ -1,70 +1,98 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, useColorScheme, Alert } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
-import { getExpenses, deleteExpense, Expense } from '../store/ExpenseStore';
+import { Ionicons } from '@expo/vector-icons';
+import { getExpenses, getCategories, deleteExpense, Expense, CategoryItem } from '../store/ExpenseStore';
+import { getTheme } from '../theme/Theme';
 
 export default function HistoryScreen() {
+  const isDarkMode = useColorScheme() === 'dark';
+  const theme = getTheme(isDarkMode);
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const isFocused = useIsFocused();
 
   useEffect(() => {
     if (isFocused) {
-      loadExpenses();
+      loadData();
     }
   }, [isFocused]);
 
-  const loadExpenses = async () => {
-    const data = await getExpenses();
-    setExpenses(data);
+  const loadData = async () => {
+    setCategories(await getCategories());
+    setExpenses(await getExpenses());
+  };
+
+  const handleDelete = (id: string) => {
+    Alert.alert('Delete Expense', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await deleteExpense(id);
+        loadData();
+      }}
+    ]);
   };
 
   const renderExpense = ({ item }: { item: Expense }) => {
-    const dateStr = new Date(item.date).toLocaleDateString();
+    const dateObj = new Date(item.date);
+    const dateStr = dateObj.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+    const catName = item.category || 'Other';
+    const catObj = categories.find(c => c.name === catName);
+    const color = catObj?.color || theme.primary;
+    const icon = catObj?.icon || 'pricetag';
+
     return (
-      <View style={styles.expenseItem}>
-        <View style={styles.expenseInfo}>
-          <Text style={styles.expenseAmount}>₹{item.amount}</Text>
-          <Text style={styles.expenseDesc}>{item.description || 'No description'}</Text>
-          {item.utr ? <Text style={styles.expenseUtr}>UTR: {item.utr}</Text> : null}
-          {item.category ? <Text style={styles.expenseCategory}>{item.category} • {dateStr}</Text> : <Text style={styles.expenseCategory}>{dateStr}</Text>}
+      <TouchableOpacity style={[styles.expenseItem, { backgroundColor: theme.card }]} onLongPress={() => handleDelete(item.id)}>
+        <View style={[styles.iconContainer, { backgroundColor: color + '20' }]}>
+          <Ionicons name={icon as any} size={20} color={color} />
         </View>
-        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteButton}>
-          <Text style={styles.deleteText}>Delete</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.expenseInfo}>
+          <Text style={[styles.expenseCategory, { color: theme.text }]}>{catName}</Text>
+          <Text style={[styles.expenseDate, { color: theme.textSecondary }]}>{dateStr}</Text>
+        </View>
+        <Text style={[styles.expenseAmount, { color: theme.text }]}>₹{parseFloat(item.amount).toFixed(0)}</Text>
+      </TouchableOpacity>
     );
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteExpense(id);
-    loadExpenses();
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>All Expenses</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>History</Text>
+        <View style={styles.monthSelector}>
+          <Ionicons name="chevron-back" size={20} color={theme.primary} />
+          <View style={{ alignItems: 'center', marginHorizontal: 16 }}>
+            <Text style={[styles.monthText, { color: theme.text }]}>{new Date().toLocaleDateString('en-GB', { month: 'long' })}</Text>
+            <Text style={[styles.yearText, { color: theme.textSecondary }]}>{new Date().getFullYear()}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+        </View>
+      </View>
+
       <FlatList
         data={expenses}
         keyExtractor={(item) => item.id}
         renderItem={renderExpense}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.emptyText}>No past expenses.</Text>}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', color: theme.textSecondary, marginTop: 50 }}>No history.</Text>}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F9FC' },
-  title: { fontSize: 28, fontWeight: '800', margin: 20, textAlign: 'center', color: '#1A1A1A' },
-  list: { padding: 20 },
-  expenseItem: { flexDirection: 'row', backgroundColor: '#FFFFFF', padding: 18, borderRadius: 16, marginBottom: 12, justifyContent: 'space-between', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  container: { flex: 1 },
+  header: { paddingHorizontal: 20, marginBottom: 10 },
+  title: { fontSize: 32, fontWeight: '800', marginBottom: 16 },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', marginBottom: 10 },
+  monthText: { fontSize: 16, fontWeight: '700' },
+  yearText: { fontSize: 12 },
+  list: { paddingHorizontal: 20, paddingBottom: 100 },
+  expenseItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12 },
+  iconContainer: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   expenseInfo: { flex: 1 },
-  expenseAmount: { fontSize: 22, fontWeight: '800', color: '#2E7D32' },
-  expenseDesc: { fontSize: 16, color: '#4A4A4A', marginTop: 6 },
-  expenseUtr: { fontSize: 12, color: '#1E88E5', marginTop: 4, fontWeight: '500' },
-  expenseCategory: { fontSize: 13, color: '#888', marginTop: 4, fontWeight: '600', textTransform: 'uppercase' },
-  deleteButton: { padding: 10, backgroundColor: '#FFEBEE', borderRadius: 8 },
-  deleteText: { color: '#D32F2F', fontWeight: '600' },
-  emptyText: { textAlign: 'center', color: '#9E9E9E', marginTop: 50, fontSize: 16 },
+  expenseCategory: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  expenseDate: { fontSize: 13 },
+  expenseAmount: { fontSize: 18, fontWeight: '700' },
 });

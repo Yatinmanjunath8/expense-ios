@@ -18,20 +18,27 @@ export interface CategoryItem {
   id: string;
   name: string;
   color: string;
+  icon: string;
 }
 
 const DEFAULT_CATEGORIES: CategoryItem[] = [
-  { id: '1', name: 'Food', color: '#FF6384' },
-  { id: '2', name: 'Travel', color: '#36A2EB' },
-  { id: '3', name: 'Shopping', color: '#FFCE56' },
-  { id: '4', name: 'Outing', color: '#4BC0C0' },
+  { id: '1', name: 'Food', color: '#FF9500', icon: 'fast-food' }, // Orange
+  { id: '2', name: 'Travel', color: '#00C7BE', icon: 'airplane' }, // Teal
+  { id: '3', name: 'Shopping', color: '#FF2D55', icon: 'cart' }, // Pink
+  { id: '4', name: 'Rent', color: '#5856D6', icon: 'home' }, // Purple
+  { id: '5', name: 'Transport', color: '#007AFF', icon: 'car' }, // Blue
+  { id: '6', name: 'Entertainment', color: '#FFCC00', icon: 'film' }, // Yellow
+  { id: '7', name: 'Health', color: '#FF3B30', icon: 'medkit' }, // Red
+  { id: '8', name: 'Groceries', color: '#34C759', icon: 'basket' }, // Green
 ];
 
 export const getCategories = async (): Promise<CategoryItem[]> => {
   try {
     const jsonValue = await AsyncStorage.getItem(CATEGORY_STORAGE_KEY);
     if (jsonValue != null) {
-      return JSON.parse(jsonValue);
+      // Ensure backwards compatibility for old saved categories that might not have icons
+      const parsed = JSON.parse(jsonValue);
+      return parsed.map((cat: any) => ({ ...cat, icon: cat.icon || 'pricetag' }));
     }
     return DEFAULT_CATEGORIES;
   } catch (e) {
@@ -40,13 +47,14 @@ export const getCategories = async (): Promise<CategoryItem[]> => {
   }
 };
 
-export const addCategory = async (name: string, color: string): Promise<CategoryItem> => {
+export const addCategory = async (name: string, color: string, icon: string = 'pricetag'): Promise<CategoryItem> => {
   try {
     const categories = await getCategories();
     const newCategory: CategoryItem = {
       id: uuid.v4().toString(),
       name,
       color,
+      icon,
     };
     const newCategories = [...categories, newCategory];
     await AsyncStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify(newCategories));
