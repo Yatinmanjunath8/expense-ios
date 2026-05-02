@@ -1,36 +1,60 @@
 export const parseAmountFromText = (blocks: any[]): string => {
   if (!blocks || blocks.length === 0) return '';
 
-  // Combine all text blocks into a single string for easier searching across lines
-  const fullText = blocks.map(b => b.text).join('\n');
-  
-  // 1. Try to find explicit currency symbols (₹, Rs, INR) followed by a number
-  // This handles standard formats like "₹500", "₹ 500", "Rs. 1,500.50"
-  const amountRegex = /(?:₹|Rs\.?|INR)\s*(\d+(?:,\d+)*(?:\.\d+)?)/i;
-  const match = fullText.match(amountRegex);
-  if (match && match[1]) {
-    return match[1].replace(/,/g, '');
-  }
+  let bestMatch = '';
+  let maxScore = -1000000;
 
-  // 2. If no currency symbol is found, ML Kit might have missed the ₹ symbol 
-  // or read it as something else. Let's look for a standalone formatted number 
-  // that looks like a price (e.g., 500.00 or 1,500)
-  const priceRegex = /^\s*(\d+(?:,\d+)*(?:\.\d{2}))\s*$/;
   for (const block of blocks) {
-    const priceMatch = block.text.match(priceRegex);
-    if (priceMatch && priceMatch[1]) {
-      return priceMatch[1].replace(/,/g, '');
+    const text = block.text.trim();
+    
+    // Extract the first clean number from the text
+    const numRegex = /\d+(?:,\d+)*(?:\.\d+)?/;
+    const numMatch = text.match(numRegex);
+    
+    if (!numMatch) continue;
+    
+    const numStr = numMatch[0];
+    const numValue = parseFloat(numStr.replace(/,/g, ''));
+    if (isNaN(numValue) || numValue <= 0) continue;
+
+    let score = 0;
+    // Base score is the physical area on screen. The main amount is usually the largest text!
+    const area = block.frame ? (block.frame.width * block.frame.height) : 0;
+    score += area; 
+
+    // Boost score if it contains currency symbols
+    if (/(?:₹|Rs\.?|INR)/i.test(text)) {
+      score += 10000;
+    }
+
+    // Boost score if it's formatted exactly as a price with decimals (e.g., 380.00)
+    if (/\.\d{2}$/.test(numStr)) {
+      score += 5000;
+    }
+
+    // Heavily penalize long strings (e.g., UTR numbers, account numbers, dates)
+    if (text.length > 15) {
+      score -= 50000; 
+    }
+    
+    // Heavily penalize if the text contains obvious non-amount keywords
+    if (/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|ID|UTR|Ref|Bank|XXXX)/i.test(text)) {
+      score -= 50000;
+    }
+
+    // Penalize exactly 12 digits (UTR/Transaction ID) or 10 digits (Phone number)
+    const cleanNum = numStr.replace(/,/g, '');
+    if (/^\d{12}$/.test(cleanNum) || /^\d{10}$/.test(cleanNum)) {
+        score -= 50000;
+    }
+
+    if (score > maxScore) {
+      maxScore = score;
+      bestMatch = cleanNum;
     }
   }
 
-  // 3. Fallback: just find the first number that has a decimal point (like 50.00)
-  const decimalRegex = /(\d+(?:,\d+)*\.\d{2})/;
-  const decimalMatch = fullText.match(decimalRegex);
-  if (decimalMatch && decimalMatch[1]) {
-    return decimalMatch[1].replace(/,/g, '');
-  }
-
-  return ''; // Return empty string if nothing found
+  return bestMatch;
 };
 
 export const parseUtrFromText = (blocks: any[]): string => {
