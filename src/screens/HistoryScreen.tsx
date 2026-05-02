@@ -25,6 +25,7 @@ export default function HistoryScreen() {
         <View style={styles.expenseInfo}>
           <Text style={styles.expenseAmount}>₹{item.amount}</Text>
           <Text style={styles.expenseDesc}>{item.description || 'No description'}</Text>
+          {item.utr ? <Text style={styles.expenseUtr}>UTR: {item.utr}</Text> : null}
           {item.category ? <Text style={styles.expenseCategory}>{item.category} • {dateStr}</Text> : <Text style={styles.expenseCategory}>{dateStr}</Text>}
         </View>
         <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteButton}>
@@ -61,6 +62,7 @@ const styles = StyleSheet.create({
   expenseInfo: { flex: 1 },
   expenseAmount: { fontSize: 22, fontWeight: '800', color: '#2E7D32' },
   expenseDesc: { fontSize: 16, color: '#4A4A4A', marginTop: 6 },
+  expenseUtr: { fontSize: 12, color: '#1E88E5', marginTop: 4, fontWeight: '500' },
   expenseCategory: { fontSize: 13, color: '#888', marginTop: 4, fontWeight: '600', textTransform: 'uppercase' },
   deleteButton: { padding: 10, backgroundColor: '#FFEBEE', borderRadius: 8 },
   deleteText: { color: '#D32F2F', fontWeight: '600' },

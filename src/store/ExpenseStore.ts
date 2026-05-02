@@ -8,6 +8,7 @@ export interface Expense {
   category: string;
   date: string;
   imageUri?: string;
+  utr?: string;
 }
 
 const STORAGE_KEY = '@expenses';

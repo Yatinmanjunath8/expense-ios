@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { getExpenses, saveExpense, Expense } from '../store/ExpenseStore';
-import { parseAmountFromText } from '../utils/ocrParser';
+import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -34,6 +34,7 @@ export default function DashboardScreen() {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [utr, setUtr] = useState('');
 
   useEffect(() => {
     if (isFocused) {
@@ -70,7 +71,9 @@ export default function DashboardScreen() {
     try {
       const result = await TextRecognition.recognize(uri);
       const extractedAmount = parseAmountFromText(result.blocks);
+      const extractedUtr = parseUtrFromText(result.blocks);
       setAmount(extractedAmount);
+      setUtr(extractedUtr);
       setShowModal(true);
     } catch (e) {
       console.error('OCR Error:', e);
@@ -82,8 +85,8 @@ export default function DashboardScreen() {
 
   const handleSave = async () => {
     if (!amount) return;
-    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined });
-    setAmount(''); setDescription(''); setCategory(''); setCurrentImageUri(null); setShowModal(false);
+    await saveExpense({ amount, description, category: category || 'Other', utr: utr || undefined, imageUri: currentImageUri || undefined });
+    setAmount(''); setDescription(''); setCategory(''); setUtr(''); setCurrentImageUri(null); setShowModal(false);
     loadExpenses();
   };
 
@@ -229,6 +232,12 @@ export default function DashboardScreen() {
                 placeholder="Category (e.g. Food, Travel)"
                 value={category}
                 onChangeText={setCategory}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="UTR / Transaction ID (Optional)"
+                value={utr}
+                onChangeText={setUtr}
               />
               <TextInput
                 style={styles.input}

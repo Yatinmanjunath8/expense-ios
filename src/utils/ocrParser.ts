@@ -32,3 +32,17 @@ export const parseAmountFromText = (blocks: any[]): string => {
 
   return ''; // Return empty string if nothing found
 };
+
+export const parseUtrFromText = (blocks: any[]): string => {
+  if (!blocks || blocks.length === 0) return '';
+  const fullText = blocks.map(b => b.text).join('\n');
+  
+  // UTR/UPI Ref numbers in India are strictly 12 digits long
+  const utrRegex = /\b(\d{12})\b/;
+  const match = fullText.match(utrRegex);
+  if (match && match[1]) {
+    return match[1];
+  }
+  
+  return '';
+};
