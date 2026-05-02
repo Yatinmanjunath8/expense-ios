@@ -56,6 +56,11 @@ export default function HistoryScreen() {
         </View>
         <View style={styles.expenseInfo}>
           <Text style={[styles.expenseCategory, { color: theme.text }]}>{catName}</Text>
+          {!!item.description && (
+            <Text style={[styles.expenseDescription, { color: theme.textSecondary }]} numberOfLines={1}>
+              {item.description}
+            </Text>
+          )}
           <Text style={[styles.expenseDate, { color: theme.textSecondary }]}>{dateStr}</Text>
         </View>
         <Text style={[styles.expenseAmount, { color: theme.text }]}>₹{parseFloat(item.amount).toFixed(0)}</Text>
@@ -107,6 +112,7 @@ const styles = StyleSheet.create({
   iconContainer: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   expenseInfo: { flex: 1 },
   expenseCategory: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  expenseDescription: { fontSize: 14, marginBottom: 4 },
   expenseDate: { fontSize: 13 },
   expenseAmount: { fontSize: 18, fontWeight: '700' },
 });

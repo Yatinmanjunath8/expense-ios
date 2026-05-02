@@ -18,6 +18,7 @@ export default function AddExpenseScreen() {
 
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -128,8 +129,8 @@ export default function AddExpenseScreen() {
       Alert.alert('Error', 'Please enter an amount');
       return;
     }
-    await saveExpense({ amount, description: '', category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString() });
-    setAmount(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date());
+    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString() });
+    setAmount(''); setDescription(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date());
     Alert.alert('Success', 'Expense added!', [{ text: 'OK', onPress: () => navigation.navigate('History' as never) }]);
   };
 
@@ -195,6 +196,21 @@ export default function AddExpenseScreen() {
             </View>
           </View>
 
+          {/* Description Card */}
+          <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="document-text-outline" size={16} color={theme.textSecondary} />
+              <Text style={[styles.cardTitle, { color: theme.textSecondary }]}>Description (Optional)</Text>
+            </View>
+            <TextInput
+              style={[styles.descriptionInput, { color: theme.text, borderColor: theme.border }]}
+              placeholder="e.g. Lunch at cafe"
+              placeholderTextColor={theme.textSecondary}
+              value={description}
+              onChangeText={setDescription}
+            />
+          </View>
+
           {/* Date Card */}
           <View style={[styles.card, { backgroundColor: theme.card }]}>
             <View style={styles.cardHeader}>
@@ -243,6 +259,7 @@ const styles = StyleSheet.create({
   amountInputContainer: { flexDirection: 'row', alignItems: 'center' },
   currencySymbol: { fontSize: 48, fontWeight: '400', marginRight: 8 },
   amountInput: { fontSize: 56, fontWeight: '700', flex: 1 },
+  descriptionInput: { fontSize: 16, padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 8 },
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10, marginBottom: 10 },
   chipText: { fontSize: 14, fontWeight: '600' },
