@@ -1,0 +1,53 @@
+name: Build Unsigned IPA for AltStore
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Native iOS Project
+        run: npx expo prebuild --clean --platform ios
+
+      - name: Install Pods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build Unsigned App
+        run: |
+          xcodebuild -workspace ios/expenseios.xcworkspace \
+            -scheme expenseios \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_IDENTITY=""
+            
+      - name: Package into IPA
+        run: |
+          cd build/Build/Products/Release-iphoneos
+          mkdir Payload
+          cp -r expenseios.app Payload/
+          zip -r expenseios.ipa Payload
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExpenseTracker-IPA
+          path: build/Build/Products/Release-iphoneos/expenseios.ipa
