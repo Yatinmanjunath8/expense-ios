@@ -7,13 +7,15 @@ struct AddExpenseIntent: AppIntent {
     static var description = IntentDescription("Takes a screenshot or image and opens Expense Tracker to automatically log the transaction.")
     static var openAppWhenRun: Bool = true
     
-    @Parameter(title: "Receipt Image", supportedTypeIdentifiers: ["public.image"])
-    var image: IntentFile?
+    @Parameter(title: "Receipt Image", description: "The screenshot or image of the receipt to process", supportedTypeIdentifiers: ["public.image"])
+    var image: IntentFile
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Process \(\.$image)")
+    }
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let image = image else { return .result() }
-        
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".jpg")
         
         // Write the incoming image data to a temporary file accessible by the main app
