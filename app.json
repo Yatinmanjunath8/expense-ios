@@ -37,6 +37,14 @@
             "bundleId": "com.yatin.expensetracker.ShareExtension"
           }
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
       ]
     ]
   }
