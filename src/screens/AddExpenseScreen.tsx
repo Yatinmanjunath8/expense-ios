@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Image, useColorScheme } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Image, useColorScheme, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +23,7 @@ export default function AddExpenseScreen() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
   const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
 
@@ -129,8 +130,8 @@ export default function AddExpenseScreen() {
       Alert.alert('Error', 'Please enter an amount');
       return;
     }
-    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString() });
-    setAmount(''); setDescription(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date());
+    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString(), isRecurring });
+    setAmount(''); setDescription(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date()); setIsRecurring(false);
     Alert.alert('Success', 'Expense added!', [{ text: 'OK', onPress: () => navigation.navigate('History' as never) }]);
   };
 
@@ -209,6 +210,10 @@ export default function AddExpenseScreen() {
               value={description}
               onChangeText={setDescription}
             />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+              <Text style={[styles.cardTitle, { color: theme.text, marginLeft: 0 }]}>Monthly Recurring</Text>
+              <Switch value={isRecurring} onValueChange={setIsRecurring} trackColor={{ true: theme.primary }} />
+            </View>
           </View>
 
           {/* Date Card */}

@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, ScrollView, Dimensions, SafeAreaView, Touchable
 import { useIsFocused } from '@react-navigation/native';
 import { PieChart, StackedBarChart } from 'react-native-chart-kit';
 import { Ionicons } from '@expo/vector-icons';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { getExpenses, getCategories, Expense, CategoryItem } from '../store/ExpenseStore';
 import { getTheme } from '../theme/Theme';
 
@@ -116,24 +118,89 @@ export default function SummaryScreen() {
 
   const activeCategoryCount = pieData.length;
 
+  const generatePDF = async () => {
+    const currentMonth = activeDate.getMonth();
+    const currentYear = activeDate.getFullYear();
+    
+    const currentMonthExpenses = expenses.filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    const monthStr = activeDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    let rows = currentMonthExpenses.map(e => `
+      <tr>
+        <td>${new Date(e.date).toLocaleDateString('en-GB')}</td>
+        <td>${e.category || 'Other'}</td>
+        <td>${e.description || '-'}</td>
+        <td>₹${parseFloat(e.amount).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Helvetica, sans-serif; padding: 40px; color: #333; }
+            h1 { text-align: center; color: #111; font-size: 32px; margin-bottom: 5px; }
+            h2 { text-align: center; color: #666; font-size: 18px; margin-top: 0; margin-bottom: 40px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border-bottom: 1px solid #ddd; padding: 14px 10px; text-align: left; }
+            th { background-color: #f8f8f8; font-weight: bold; color: #555; text-transform: uppercase; font-size: 12px; }
+            tr:nth-child(even) { background-color: #fafafa; }
+            .total { font-weight: bold; font-size: 24px; margin-top: 30px; text-align: right; color: #111; }
+          </style>
+        </head>
+        <body>
+          <h1>Expense Report</h1>
+          <h2>${monthStr}</h2>
+          <table>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+            </tr>
+            ${rows}
+          </table>
+          <div class="total">Total Spent: ₹${currentMonthTotal.toFixed(2)}</div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri);
+    } catch (e) {
+      console.error("Error generating PDF:", e);
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Summary</Text>
-          <View style={styles.monthSelector}>
-            <TouchableOpacity onPress={() => changeMonth(-1)}>
-              <Ionicons name="chevron-back" size={24} color={theme.primary} />
-            </TouchableOpacity>
-            <View style={{ alignItems: 'center', marginHorizontal: 16, width: 100 }}>
-              <Text style={[styles.monthText, { color: theme.text }]}>{activeDate.toLocaleDateString('en-GB', { month: 'long' })}</Text>
-              <Text style={[styles.yearText, { color: theme.textSecondary }]}>{activeDate.getFullYear()}</Text>
+          <View>
+            <Text style={[styles.title, { color: theme.text }]}>Summary</Text>
+            <View style={[styles.monthSelector, { marginTop: 4 }]}>
+              <TouchableOpacity onPress={() => changeMonth(-1)}>
+                <Ionicons name="chevron-back" size={20} color={theme.primary} />
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', marginHorizontal: 12, width: 90 }}>
+                <Text style={[styles.monthText, { color: theme.text }]}>{activeDate.toLocaleDateString('en-GB', { month: 'long' })}</Text>
+                <Text style={[styles.yearText, { color: theme.textSecondary }]}>{activeDate.getFullYear()}</Text>
+              </View>
+              <TouchableOpacity onPress={() => changeMonth(1)}>
+                <Ionicons name="chevron-forward" size={20} color={theme.primary} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => changeMonth(1)}>
-              <Ionicons name="chevron-forward" size={24} color={theme.primary} />
-            </TouchableOpacity>
           </View>
+          <TouchableOpacity style={[styles.pdfButton, { backgroundColor: theme.primary + '20' }]} onPress={generatePDF}>
+            <Ionicons name="download-outline" size={20} color={theme.primary} />
+            <Text style={{ color: theme.primary, marginLeft: 6, fontWeight: '600' }}>PDF</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Total Spent Card */}
@@ -247,4 +314,5 @@ const styles = StyleSheet.create({
   listRight: { alignItems: 'flex-end' },
   listAmount: { fontSize: 16, fontWeight: '700' },
   listPercent: { fontSize: 12, marginTop: 2 },
+  pdfButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
 });

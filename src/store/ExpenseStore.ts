@@ -9,10 +9,12 @@ export interface Expense {
   date: string;
   imageUri?: string;
   utr?: string;
+  isRecurring?: boolean;
 }
 
 const STORAGE_KEY = '@expenses';
 const CATEGORY_STORAGE_KEY = '@categories';
+const LAST_RECURRING_PROCESS_KEY = '@last_recurring_process';
 
 export interface CategoryItem {
   id: string;
@@ -113,5 +115,82 @@ export const updateExpense = async (id: string, updatedData: Partial<Expense>) =
   } catch (error) {
     console.error('Error updating expense:', error);
     throw error;
+  }
+};
+
+export const processRecurringExpenses = async () => {
+  try {
+    const lastRunStr = await AsyncStorage.getItem(LAST_RECURRING_PROCESS_KEY);
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+    
+    if (lastRunStr === currentMonthKey) {
+      return; // Already processed this month
+    }
+
+    const expenses = await getExpenses();
+    
+    // Find all recurring expenses
+    const recurringExpenses = expenses.filter(e => e.isRecurring);
+    
+    // We only want to duplicate the most recent occurrence of each unique subscription
+    // A subscription is uniquely identified by its description and category
+    const uniqueSubs = new Map<string, Expense>();
+    
+    for (const exp of recurringExpenses) {
+      const expDate = new Date(exp.date);
+      // Skip if it's already in the current month
+      if (expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear()) {
+        continue;
+      }
+      
+      const key = `${exp.description}-${exp.category}`;
+      const existing = uniqueSubs.get(key);
+      if (!existing || new Date(exp.date) > new Date(existing.date)) {
+        uniqueSubs.set(key, exp);
+      }
+    }
+
+    // Now check if these unique subs have ALREADY been paid this month (maybe user manually added it)
+    const currentMonthExpenses = expenses.filter(e => {
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const newExpensesToSave: Expense[] = [];
+    
+    for (const sub of uniqueSubs.values()) {
+      const alreadyPaidThisMonth = currentMonthExpenses.some(
+        e => e.description === sub.description && e.category === sub.category && e.isRecurring
+      );
+      
+      if (!alreadyPaidThisMonth) {
+        // Create a new expense for this month, keeping the same day of the month if possible
+        const originalDate = new Date(sub.date);
+        const newDate = new Date(now.getFullYear(), now.getMonth(), originalDate.getDate());
+        
+        // If the month doesn't have that many days (e.g. Feb 30th), it will roll over to next month. We can cap it.
+        if (newDate.getMonth() !== now.getMonth()) {
+          newDate.setDate(0); // Set to last day of current month
+        }
+        
+        newExpensesToSave.push({
+          ...sub,
+          id: uuid.v4() as string,
+          date: newDate.toISOString(),
+        });
+      }
+    }
+
+    if (newExpensesToSave.length > 0) {
+      const updatedExpenses = [...newExpensesToSave, ...expenses];
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedExpenses));
+    }
+
+    await AsyncStorage.setItem(LAST_RECURRING_PROCESS_KEY, currentMonthKey);
+    return newExpensesToSave.length;
+  } catch (error) {
+    console.error('Error processing recurring expenses:', error);
+    return 0;
   }
 };

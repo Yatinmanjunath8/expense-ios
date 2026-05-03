@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
+import { processRecurringExpenses } from './src/store/ExpenseStore';
 import AppNavigator from './src/navigation/AppNavigator';
 
 Notifications.setNotificationHandler({
@@ -15,6 +16,7 @@ Notifications.setNotificationHandler({
 export default function App() {
   useEffect(() => {
     setupNotifications();
+    processRecurringExpenses();
   }, []);
 
   const setupNotifications = async () => {

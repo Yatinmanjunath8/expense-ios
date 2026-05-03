@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, useColorScheme, Alert, Modal, TextInput, Platform } from 'react-native';
+import { StyleSheet, Text, View, FlatList, SafeAreaView, TouchableOpacity, useColorScheme, Alert, Modal, TextInput, Platform, Switch, ScrollView } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ViewShot from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import { useRef } from 'react';
 import { getExpenses, getCategories, deleteExpense, updateExpense, Expense, CategoryItem } from '../store/ExpenseStore';
 import { getTheme } from '../theme/Theme';
 
@@ -13,13 +16,17 @@ export default function HistoryScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [activeDate, setActiveDate] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Edit State
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editDate, setEditDate] = useState(new Date());
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  const viewShotRef = useRef<ViewShot>(null);
 
   const isFocused = useIsFocused();
 
@@ -55,6 +62,7 @@ export default function HistoryScreen() {
     setEditAmount(item.amount);
     setEditDescription(item.description || '');
     setEditDate(new Date(item.date));
+    setEditIsRecurring(item.isRecurring || false);
   };
 
   const handleSaveEdit = async () => {
@@ -63,9 +71,21 @@ export default function HistoryScreen() {
         amount: editAmount,
         description: editDescription,
         date: editDate.toISOString(),
+        isRecurring: editIsRecurring
       });
       setEditingExpense(null);
       loadData();
+    }
+  };
+
+  const handleShare = async () => {
+    if (viewShotRef.current?.capture) {
+      try {
+        const uri = await viewShotRef.current.capture();
+        await Sharing.shareAsync(uri);
+      } catch (e) {
+        console.error("Error sharing image:", e);
+      }
     }
   };
 
@@ -118,10 +138,32 @@ export default function HistoryScreen() {
         </View>
       </View>
 
+      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <View style={[styles.searchContainer, { backgroundColor: theme.card }]}>
+          <Ionicons name="search" size={20} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Search expenses..."
+            placeholderTextColor={theme.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
       <FlatList
         data={expenses.filter(e => {
           const d = new Date(e.date);
-          return d.getMonth() === activeDate.getMonth() && d.getFullYear() === activeDate.getFullYear();
+          const isCurrentMonth = d.getMonth() === activeDate.getMonth() && d.getFullYear() === activeDate.getFullYear();
+          if (!isCurrentMonth) return false;
+          
+          if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            return (e.description?.toLowerCase().includes(query) || false) || 
+                   e.amount.includes(query) || 
+                   e.category.toLowerCase().includes(query);
+          }
+          return true;
         })}
         keyExtractor={(item) => item.id}
         renderItem={renderExpense}
@@ -137,8 +179,27 @@ export default function HistoryScreen() {
             <TouchableOpacity onPress={handleSaveEdit}><Text style={{ color: theme.primary, fontSize: 18, fontWeight: 'bold' }}>Save</Text></TouchableOpacity>
           </View>
           
-          <View style={{ padding: 20 }}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Amount (₹)</Text>
+          <ScrollView style={{ padding: 20 }}>
+            <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }} style={{ backgroundColor: theme.background }}>
+              <View style={[styles.expenseItem, { backgroundColor: theme.card, marginBottom: 20 }]}>
+                <View style={[styles.iconContainer, { backgroundColor: theme.primary + '20' }]}>
+                  <Ionicons name="receipt" size={20} color={theme.primary} />
+                </View>
+                <View style={styles.expenseInfo}>
+                  <Text style={[styles.expenseCategory, { color: theme.text }]}>{editingExpense?.category}</Text>
+                  {!!editDescription && <Text style={[styles.expenseDescription, { color: theme.textSecondary }]} numberOfLines={1}>{editDescription}</Text>}
+                  <Text style={[styles.expenseDate, { color: theme.textSecondary }]}>{editDate.toLocaleDateString('en-GB')}</Text>
+                </View>
+                <Text style={[styles.expenseAmount, { color: theme.text }]}>₹{editAmount}</Text>
+              </View>
+            </ViewShot>
+
+            <TouchableOpacity style={[styles.shareButton, { backgroundColor: theme.primary }]} onPress={handleShare}>
+              <Ionicons name="share-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '600' }}>Share Receipt</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { color: theme.textSecondary, marginTop: 24 }]}>Amount (₹)</Text>
             <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={editAmount} onChangeText={setEditAmount} />
             
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>Description</Text>
@@ -148,6 +209,12 @@ export default function HistoryScreen() {
             <TouchableOpacity style={[styles.input, { justifyContent: 'center', borderColor: theme.border }]} onPress={() => setShowDatePicker(true)}>
               <Text style={{ color: theme.text, fontSize: 16 }}>{editDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
             </TouchableOpacity>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 40 }}>
+              <Text style={[styles.label, { color: theme.text, marginBottom: 0 }]}>Monthly Recurring</Text>
+              <Switch value={editIsRecurring} onValueChange={setEditIsRecurring} trackColor={{ true: theme.primary }} />
+            </View>
+
             {showDatePicker && (
               <DateTimePicker
                 value={editDate}
@@ -159,7 +226,7 @@ export default function HistoryScreen() {
                 }}
               />
             )}
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -185,4 +252,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700' },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { fontSize: 16, padding: 16, borderRadius: 12, borderWidth: 1, minHeight: 56 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16 },
+  searchInput: { flex: 1, marginLeft: 8, fontSize: 16 },
+  shareButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12 },
 });
