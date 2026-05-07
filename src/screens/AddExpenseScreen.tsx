@@ -5,7 +5,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
-import { recognizeImage as recognizeImageIOS } from '../../modules/expo-vision-ocr';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { getCategories, getExpenses, saveExpense, addCategory, CategoryItem, Expense } from '../store/ExpenseStore';
 import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
@@ -112,12 +111,8 @@ export default function AddExpenseScreen() {
     setCurrentImageUri(uri);
     try {
       let blocks: any[] = [];
-      if (Platform.OS === 'ios') {
-        blocks = await recognizeImageIOS(uri);
-      } else {
-        const result = await TextRecognition.recognize(uri);
-        blocks = result.blocks;
-      }
+      const result = await TextRecognition.recognize(uri);
+      blocks = result.blocks;
       setAmount(parseAmountFromText(blocks));
       // UTR is no longer in the UI to keep it clean like screenshot 1, but we can save it silently or just drop it.
     } catch (e) {

@@ -1,7 +1,0 @@
-{
-  "name": "expo-vision-ocr",
-  "version": "1.0.0",
-  "description": "Local Expo module for Apple Native Vision OCR",
-  "main": "index.ts",
-  "dependencies": {}
-}
