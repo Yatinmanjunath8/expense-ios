@@ -1,0 +1,6 @@
+{
+  "name": "expo-vision-ocr",
+  "ios": {
+    "modules": ["ExpoVisionOcrModule"]
+  }
+}
