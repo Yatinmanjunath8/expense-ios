@@ -51,3 +51,12 @@ jobs:
         with:
           name: ExpenseTracker-IPA
           path: build/Build/Products/Release-iphoneos/ExpenseTracker.ipa
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.sha }}
+          name: Latest Build (${{ github.sha }})
+          files: build/Build/Products/Release-iphoneos/ExpenseTracker.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
