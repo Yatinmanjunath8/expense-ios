@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettings, CurrencySymbol, ThemeMode } from '../store/SettingsContext';
+import { useSettings } from '../store/SettingsContext';
+import type { CurrencySymbol, ThemeMode } from '../store/SettingsContext';
 
 export default function OnboardingScreen() {
   const { 

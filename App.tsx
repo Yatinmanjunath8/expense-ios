@@ -4,6 +4,29 @@ import { processRecurringExpenses } from './src/store/ExpenseStore';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SettingsProvider, useSettings } from './src/store/SettingsContext';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import { View, Text, SafeAreaView } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', padding: 20 }}>
+          <Text style={{ color: 'red', fontSize: 18, fontWeight: 'bold' }}>App Crashed!</Text>
+          <Text style={{ color: 'white', marginTop: 10, textAlign: 'center' }}>{this.state.error?.message}</Text>
+        </SafeAreaView>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -19,7 +42,11 @@ function AppRoot() {
   const { hasCompletedOnboarding, isLoading } = useSettings();
 
   if (isLoading) {
-    return null; // Or a splash screen
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#FFF' }}>Loading...</Text>
+      </View>
+    );
   }
 
   return hasCompletedOnboarding ? <AppNavigator /> : <OnboardingScreen />;
@@ -55,8 +82,12 @@ export default function App() {
   };
 
   return (
-    <SettingsProvider>
-      <AppRoot />
-    </SettingsProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <SettingsProvider>
+          <AppRoot />
+        </SettingsProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
