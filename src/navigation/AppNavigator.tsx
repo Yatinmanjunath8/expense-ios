@@ -1,18 +1,17 @@
 import React from 'react';
-import { useColorScheme, View } from 'react-native';
+import { View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import SummaryScreen from '../screens/SummaryScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
-import { getTheme } from '../theme/Theme';
+import { useAppTheme } from '../theme/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
 export default function AppNavigator() {
-  const isDarkMode = useColorScheme() === 'dark';
-  const theme = getTheme(isDarkMode);
+  const { theme } = useAppTheme();
 
   return (
     <NavigationContainer>

@@ -6,13 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getExpenses, getCategories, Expense, CategoryItem } from '../store/ExpenseStore';
-import { getTheme } from '../theme/Theme';
+import { useAppTheme } from '../theme/ThemeContext';
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function SummaryScreen() {
-  const isDarkMode = useColorScheme() === 'dark';
-  const theme = getTheme(isDarkMode);
+  const { theme, isDark, cycleMode } = useAppTheme();
   
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -197,10 +196,15 @@ export default function SummaryScreen() {
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity style={[styles.pdfButton, { backgroundColor: theme.primary + '20' }]} onPress={generatePDF}>
-            <Ionicons name="download-outline" size={20} color={theme.primary} />
-            <Text style={{ color: theme.primary, marginLeft: 6, fontWeight: '600' }}>PDF</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={cycleMode} style={[styles.pdfButton, { backgroundColor: theme.card, marginRight: 8 }]}>
+              <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={theme.text} />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.pdfButton, { backgroundColor: theme.primary + '20' }]} onPress={generatePDF}>
+              <Ionicons name="download-outline" size={20} color={theme.primary} />
+              <Text style={{ color: theme.primary, marginLeft: 6, fontWeight: '600' }}>PDF</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Total Spent Card */}

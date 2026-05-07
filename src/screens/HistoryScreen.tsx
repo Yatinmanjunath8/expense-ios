@@ -7,11 +7,10 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useRef } from 'react';
 import { getExpenses, getCategories, deleteExpense, updateExpense, Expense, CategoryItem } from '../store/ExpenseStore';
-import { getTheme } from '../theme/Theme';
+import { useAppTheme } from '../theme/ThemeContext';
 
 export default function HistoryScreen() {
-  const isDarkMode = useColorScheme() === 'dark';
-  const theme = getTheme(isDarkMode);
+  const { theme, isDark } = useAppTheme();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -206,26 +205,30 @@ export default function HistoryScreen() {
             <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editDescription} onChangeText={setEditDescription} />
             
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>Date</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center', borderColor: theme.border }]} onPress={() => setShowDatePicker(true)}>
+            <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderColor: theme.border }]} onPress={() => setShowDatePicker(!showDatePicker)}>
               <Text style={{ color: theme.text, fontSize: 16 }}>{editDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+              <Ionicons name={showDatePicker ? "chevron-up" : "chevron-down"} size={16} color={theme.border} />
             </TouchableOpacity>
+            
+            {showDatePicker && (
+              <DateTimePicker
+                value={editDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                maximumDate={new Date()}
+                onChange={(event, selectedDate) => {
+                  if (Platform.OS !== 'ios') {
+                    setShowDatePicker(false);
+                  }
+                  if (selectedDate) setEditDate(selectedDate);
+                }}
+              />
+            )}
             
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, marginBottom: 40 }}>
               <Text style={[styles.label, { color: theme.text, marginBottom: 0 }]}>Monthly Recurring</Text>
               <Switch value={editIsRecurring} onValueChange={setEditIsRecurring} trackColor={{ true: theme.primary }} />
             </View>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={editDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(Platform.OS === 'ios');
-                  if (selectedDate) setEditDate(selectedDate);
-                }}
-              />
-            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>

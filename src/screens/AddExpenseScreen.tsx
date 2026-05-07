@@ -8,11 +8,10 @@ import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { getCategories, getExpenses, saveExpense, addCategory, CategoryItem, Expense } from '../store/ExpenseStore';
 import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
-import { getTheme } from '../theme/Theme';
+import { useAppTheme } from '../theme/ThemeContext';
 
 export default function AddExpenseScreen() {
-  const isDarkMode = useColorScheme() === 'dark';
-  const theme = getTheme(isDarkMode);
+  const { theme, isDark } = useAppTheme();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
@@ -26,6 +25,7 @@ export default function AddExpenseScreen() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
   const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   useEffect(() => {
     if (isFocused) {
@@ -58,13 +58,27 @@ export default function AddExpenseScreen() {
 
   const loadCategories = async () => {
     const data = await getCategories();
-    setCategories(data);
-    if (!category && data.length > 0) {
-      setCategory(data[0].name);
+    const allExpenses = await getExpenses();
+    
+    // Sort categories by usage frequency
+    const categoryCounts: Record<string, number> = {};
+    allExpenses.forEach(e => {
+      const cat = e.category || 'Other';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+    
+    const sortedCategories = [...data].sort((a, b) => {
+      const countA = categoryCounts[a.name] || 0;
+      const countB = categoryCounts[b.name] || 0;
+      return countB - countA;
+    });
+    
+    setCategories(sortedCategories);
+    if (!category && sortedCategories.length > 0) {
+      setCategory(sortedCategories[0].name);
     }
     
     // Calculate current month total
-    const allExpenses = await getExpenses();
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
@@ -178,12 +192,12 @@ export default function AddExpenseScreen() {
               <Text style={[styles.cardTitle, { color: theme.textSecondary }]}>Category</Text>
             </View>
             <View style={styles.chipsContainer}>
-              {categories.map((cat) => {
+              {(showAllCategories ? categories : categories.slice(0, 4)).map((cat) => {
                 const isActive = category === cat.name;
                 return (
                   <TouchableOpacity 
                     key={cat.id} 
-                    style={[styles.chip, { backgroundColor: isActive ? cat.color : (isDarkMode ? '#2C2C2E' : '#F2F2F7') }]}
+                    style={[styles.chip, { backgroundColor: isActive ? cat.color : (isDark ? '#2C2C2E' : '#F2F2F7') }]}
                     onPress={() => setCategory(cat.name)}
                   >
                     <Ionicons name={cat.icon as any} size={14} color={isActive ? '#FFF' : theme.text} style={{ marginRight: 6 }} />
@@ -191,7 +205,15 @@ export default function AddExpenseScreen() {
                   </TouchableOpacity>
                 );
               })}
-              <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#2C2C2E' : '#F2F2F7' }]} onPress={handleAddCustomCategory}>
+              
+              {!showAllCategories && categories.length > 4 && (
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]} onPress={() => setShowAllCategories(true)}>
+                  <Ionicons name="chevron-down" size={16} color={theme.text} style={{ marginRight: 4 }} />
+                  <Text style={[styles.chipText, { color: theme.text }]}>Show More</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={[styles.chip, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]} onPress={handleAddCustomCategory}>
                 <Ionicons name="add" size={16} color={theme.text} />
               </TouchableOpacity>
             </View>
@@ -222,17 +244,20 @@ export default function AddExpenseScreen() {
               <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
               <Text style={[styles.cardTitle, { color: theme.textSecondary }]}>Date</Text>
             </View>
-            <TouchableOpacity style={styles.dateRow} onPress={() => setShowDatePicker(true)}>
+            <TouchableOpacity style={styles.dateRow} onPress={() => setShowDatePicker(!showDatePicker)}>
               <Text style={[styles.dateText, { color: theme.text }]}>{date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
-              <Ionicons name="chevron-down" size={16} color={theme.border} />
+              <Ionicons name={showDatePicker ? "chevron-up" : "chevron-down"} size={16} color={theme.border} />
             </TouchableOpacity>
             {showDatePicker && (
               <DateTimePicker
                 value={date}
                 mode="date"
-                display="default"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                maximumDate={new Date()}
                 onChange={(event, selectedDate) => {
-                  setShowDatePicker(Platform.OS === 'ios');
+                  if (Platform.OS !== 'ios') {
+                    setShowDatePicker(false);
+                  }
                   if (selectedDate) setDate(selectedDate);
                 }}
               />
