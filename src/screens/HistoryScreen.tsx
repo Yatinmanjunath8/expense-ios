@@ -22,6 +22,7 @@ export default function HistoryScreen() {
   const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editType, setEditType] = useState<'expense' | 'income'>('expense');
+  const [editDate, setEditDate] = useState(new Date());
   const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   

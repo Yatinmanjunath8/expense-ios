@@ -35,7 +35,7 @@ export default function SummaryScreen() {
     setCategories(await getCategories());
   };
 
-  const { currentMonthTotal, pieData, categoryTotals } = useMemo(() => {
+  const { currentMonthTotal, currentMonthIncome, pieData, categoryTotals } = useMemo(() => {
     const currentMonth = activeDate.getMonth();
     const currentYear = activeDate.getFullYear();
     
