@@ -10,6 +10,7 @@ export interface Expense {
   imageUri?: string;
   utr?: string;
   isRecurring?: boolean;
+  type?: 'expense' | 'income';
 }
 
 const STORAGE_KEY = '@expenses';

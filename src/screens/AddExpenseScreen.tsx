@@ -9,10 +9,10 @@ import { recognizeImage as recognizeImageIOS } from '../../modules/expo-vision-o
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { getCategories, getExpenses, saveExpense, addCategory, CategoryItem, Expense } from '../store/ExpenseStore';
 import { parseAmountFromText, parseUtrFromText } from '../utils/ocrParser';
-import { useAppTheme } from '../theme/ThemeContext';
+import { useSettings } from '../store/SettingsContext';
 
 export default function AddExpenseScreen() {
-  const { theme, isDark } = useAppTheme();
+  const { theme, isDark, currency, incomeModeEnabled } = useSettings();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
 
@@ -24,6 +24,7 @@ export default function AddExpenseScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [type, setType] = useState<'expense' | 'income'>('expense');
   const [currentImageUri, setCurrentImageUri] = useState<string | null>(null);
   const [currentMonthTotal, setCurrentMonthTotal] = useState(0);
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -86,7 +87,7 @@ export default function AddExpenseScreen() {
     const total = allExpenses
       .filter(e => {
         const d = new Date(e.date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear && (!e.type || e.type === 'expense');
       })
       .reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
     setCurrentMonthTotal(total);
@@ -151,8 +152,8 @@ export default function AddExpenseScreen() {
       Alert.alert('Error', 'Please enter an amount');
       return;
     }
-    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString(), isRecurring });
-    setAmount(''); setDescription(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date()); setIsRecurring(false);
+    await saveExpense({ amount, description, category: category || 'Other', imageUri: currentImageUri || undefined, date: date.toISOString(), isRecurring, type });
+    setAmount(''); setDescription(''); setCategory(categories[0]?.name || ''); setCurrentImageUri(null); setDate(new Date()); setIsRecurring(false); setType('expense');
     Alert.alert('Success', 'Expense added!', [{ text: 'OK', onPress: () => navigation.navigate('History' as never) }]);
   };
 
@@ -162,13 +163,24 @@ export default function AddExpenseScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.headerRow}>
             <View>
-              <Text style={[styles.title, { color: theme.text }]}>Add Expense</Text>
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>This Month: ₹{currentMonthTotal.toFixed(0)}</Text>
+              <Text style={[styles.title, { color: theme.text }]}>Add {type === 'income' ? 'Income' : 'Expense'}</Text>
+              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>This Month Spent: {currency}{currentMonthTotal.toFixed(0)}</Text>
             </View>
             <TouchableOpacity onPress={handleImportPhotos} disabled={isProcessing}>
               <Ionicons name="camera" size={28} color={theme.primary} />
             </TouchableOpacity>
           </View>
+
+          {incomeModeEnabled && (
+            <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
+              <TouchableOpacity style={[styles.segment, type === 'expense' && { backgroundColor: theme.card, shadowOpacity: 0.1 }]} onPress={() => setType('expense')}>
+                <Text style={[styles.segmentText, { color: type === 'expense' ? theme.text : theme.textSecondary }]}>Expense</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.segment, type === 'income' && { backgroundColor: theme.card, shadowOpacity: 0.1 }]} onPress={() => setType('income')}>
+                <Text style={[styles.segmentText, { color: type === 'income' ? '#34C759' : theme.textSecondary }]}>Income</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {currentImageUri && <Image source={{ uri: currentImageUri }} style={styles.previewImage} />}
 
@@ -179,9 +191,9 @@ export default function AddExpenseScreen() {
               <Text style={[styles.cardTitle, { color: theme.textSecondary }]}>Amount</Text>
             </View>
             <View style={styles.amountInputContainer}>
-              <Text style={[styles.currencySymbol, { color: theme.textSecondary }]}>₹</Text>
+              <Text style={[styles.currencySymbol, { color: type === 'income' ? '#34C759' : theme.textSecondary }]}>{currency}</Text>
               <TextInput
-                style={[styles.amountInput, { color: theme.text }]}
+                style={[styles.amountInput, { color: type === 'income' ? '#34C759' : theme.text }]}
                 placeholder="0"
                 placeholderTextColor={theme.textSecondary}
                 keyboardType="numeric"
@@ -273,9 +285,9 @@ export default function AddExpenseScreen() {
 
         </ScrollView>
         <View style={styles.footer}>
-          <TouchableOpacity style={[styles.submitButton, { backgroundColor: theme.primary }]} onPress={handleSave}>
+          <TouchableOpacity style={[styles.submitButton, { backgroundColor: type === 'income' ? '#34C759' : theme.primary }]} onPress={handleSave}>
             <Ionicons name="add-circle" size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.submitButtonText}>Add Expense</Text>
+            <Text style={styles.submitButtonText}>Add {type === 'income' ? 'Income' : 'Expense'}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -290,6 +302,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: '800' },
   subtitle: { fontSize: 14, fontWeight: '600', marginTop: 4 },
   previewImage: { width: '100%', height: 150, borderRadius: 16, marginBottom: 20 },
+  segmentedControl: { flexDirection: 'row', padding: 4, borderRadius: 12, marginBottom: 20 },
+  segment: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  segmentText: { fontSize: 14, fontWeight: '600' },
   card: { borderRadius: 20, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   cardTitle: { fontSize: 14, fontWeight: '600', marginLeft: 8 },

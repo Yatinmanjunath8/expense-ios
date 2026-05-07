@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { processRecurringExpenses } from './src/store/ExpenseStore';
 import AppNavigator from './src/navigation/AppNavigator';
-import { ThemeProvider } from './src/theme/ThemeContext';
+import { SettingsProvider, useSettings } from './src/store/SettingsContext';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -13,6 +14,16 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+function AppRoot() {
+  const { hasCompletedOnboarding, isLoading } = useSettings();
+
+  if (isLoading) {
+    return null; // Or a splash screen
+  }
+
+  return hasCompletedOnboarding ? <AppNavigator /> : <OnboardingScreen />;
+}
 
 export default function App() {
   useEffect(() => {
@@ -29,10 +40,7 @@ export default function App() {
     }
     if (finalStatus !== 'granted') return;
 
-    // Clear existing to avoid duplicates
     await Notifications.cancelAllScheduledNotificationsAsync();
-    
-    // Schedule daily notification at 8:30 PM (20:30)
     await Notifications.scheduleNotificationAsync({
       content: {
         title: "Log Your Expenses! 💸",
@@ -47,8 +55,8 @@ export default function App() {
   };
 
   return (
-    <ThemeProvider>
-      <AppNavigator />
-    </ThemeProvider>
+    <SettingsProvider>
+      <AppRoot />
+    </SettingsProvider>
   );
 }

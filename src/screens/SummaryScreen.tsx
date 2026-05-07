@@ -6,12 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { getExpenses, getCategories, Expense, CategoryItem } from '../store/ExpenseStore';
-import { useAppTheme } from '../theme/ThemeContext';
+import { useSettings } from '../store/SettingsContext';
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function SummaryScreen() {
-  const { theme, isDark, cycleMode } = useAppTheme();
+  const { theme, isDark, cycleMode, currency, incomeModeEnabled, setIncomeModeEnabled } = useSettings();
   
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -45,12 +45,19 @@ export default function SummaryScreen() {
     });
 
     const totals: Record<string, number> = {};
-    currentMonthExpenses.forEach(e => {
-      const cat = e.category || 'Other';
-      totals[cat] = (totals[cat] || 0) + (parseFloat(e.amount) || 0);
-    });
+    let totalExpense = 0;
+    let totalIncome = 0;
 
-    const totalSpent = currentMonthExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    currentMonthExpenses.forEach(e => {
+      const amount = parseFloat(e.amount) || 0;
+      if (e.type === 'income') {
+        totalIncome += amount;
+      } else {
+        totalExpense += amount;
+        const cat = e.category || 'Other';
+        totals[cat] = (totals[cat] || 0) + amount;
+      }
+    });
     
     const pData = Object.keys(totals).map((catName) => {
       const catObj = categories.find(c => c.name === catName);
@@ -63,7 +70,7 @@ export default function SummaryScreen() {
       };
     }).filter(d => d.population > 0);
 
-    return { currentMonthTotal: totalSpent, pieData: pData, categoryTotals: totals, count: currentMonthExpenses.length };
+    return { currentMonthTotal: totalExpense, currentMonthIncome: totalIncome, pieData: pData, categoryTotals: totals, count: currentMonthExpenses.length };
   }, [expenses, categories, theme, activeDate]);
 
   const barData = useMemo(() => {
@@ -103,7 +110,7 @@ export default function SummaryScreen() {
       
       const monthExpenses = expenses.filter(e => {
         const d = new Date(e.date);
-        return d.getMonth() === m && d.getFullYear() === year;
+        return d.getMonth() === m && d.getFullYear() === year && (!e.type || e.type === 'expense');
       });
 
       const row = legend.map(cat => {
@@ -133,7 +140,7 @@ export default function SummaryScreen() {
         <td>${new Date(e.date).toLocaleDateString('en-GB')}</td>
         <td>${e.category || 'Other'}</td>
         <td>${e.description || '-'}</td>
-        <td>₹${parseFloat(e.amount).toFixed(2)}</td>
+        <td>${e.type === 'income' ? '+' : ''}${currency}${parseFloat(e.amount).toFixed(2)}</td>
       </tr>
     `).join('');
 
@@ -163,7 +170,8 @@ export default function SummaryScreen() {
             </tr>
             ${rows}
           </table>
-          <div class="total">Total Spent: ₹${currentMonthTotal.toFixed(2)}</div>
+          <div class="total">Total Spent: ${currency}${currentMonthTotal.toFixed(2)}</div>
+          ${incomeModeEnabled ? `<div class="total" style="color: #34C759;">Total Income: ${currency}${currentMonthIncome.toFixed(2)}</div>` : ''}
         </body>
       </html>
     `;
@@ -197,22 +205,37 @@ export default function SummaryScreen() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setIncomeModeEnabled(!incomeModeEnabled)} style={[styles.pdfButton, { backgroundColor: theme.card, marginRight: 8 }]}>
+              <Ionicons name={incomeModeEnabled ? "wallet" : "wallet-outline"} size={20} color={incomeModeEnabled ? '#34C759' : theme.text} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={cycleMode} style={[styles.pdfButton, { backgroundColor: theme.card, marginRight: 8 }]}>
               <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={theme.text} />
             </TouchableOpacity>
             <TouchableOpacity style={[styles.pdfButton, { backgroundColor: theme.primary + '20' }]} onPress={generatePDF}>
               <Ionicons name="download-outline" size={20} color={theme.primary} />
-              <Text style={{ color: theme.primary, marginLeft: 6, fontWeight: '600' }}>PDF</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Total Spent Card */}
-        <View style={[styles.card, { backgroundColor: theme.card }]}>
-          <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Total Spent</Text>
-          <Text style={[styles.totalAmount, { color: theme.text }]}>₹{currentMonthTotal.toFixed(0)}</Text>
-          <Text style={[styles.transactionCount, { color: theme.textSecondary }]}>{expenses.length} transactions</Text>
-        </View>
+        {/* Overview Cards */}
+        {incomeModeEnabled ? (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+            <View style={[styles.card, { backgroundColor: theme.card, flex: 1, padding: 16, marginBottom: 0 }]}>
+              <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Income</Text>
+              <Text style={[styles.totalAmount, { color: '#34C759', fontSize: 24 }]}>{currency}{currentMonthIncome.toFixed(0)}</Text>
+            </View>
+            <View style={[styles.card, { backgroundColor: theme.card, flex: 1, padding: 16, marginBottom: 0 }]}>
+              <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Expense</Text>
+              <Text style={[styles.totalAmount, { color: theme.text, fontSize: 24 }]}>{currency}{currentMonthTotal.toFixed(0)}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.card, { backgroundColor: theme.card }]}>
+            <Text style={[styles.cardSub, { color: theme.textSecondary }]}>Total Spent</Text>
+            <Text style={[styles.totalAmount, { color: theme.text }]}>{currency}{currentMonthTotal.toFixed(0)}</Text>
+            <Text style={[styles.transactionCount, { color: theme.textSecondary }]}>{expenses.length} transactions</Text>
+          </View>
+        )}
 
         {expenses.length > 0 ? (
           <>
@@ -257,7 +280,7 @@ export default function SummaryScreen() {
                     </View>
                     <Text style={[styles.listName, { color: theme.text }]}>{catName}</Text>
                     <View style={styles.listRight}>
-                      <Text style={[styles.listAmount, { color: theme.text }]}>₹{amount.toFixed(0)}</Text>
+                      <Text style={[styles.listAmount, { color: theme.text }]}>{currency}{amount.toFixed(0)}</Text>
                       <Text style={[styles.listPercent, { color: theme.textSecondary }]}>{percentage}%</Text>
                     </View>
                   </View>

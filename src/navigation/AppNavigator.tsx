@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import SummaryScreen from '../screens/SummaryScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
-import { useAppTheme } from '../theme/ThemeContext';
+import { useAppTheme } from '../store/SettingsContext';
 
 const Tab = createBottomTabNavigator();
 

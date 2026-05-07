@@ -7,10 +7,10 @@ import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { useRef } from 'react';
 import { getExpenses, getCategories, deleteExpense, updateExpense, Expense, CategoryItem } from '../store/ExpenseStore';
-import { useAppTheme } from '../theme/ThemeContext';
+import { useSettings } from '../store/SettingsContext';
 
 export default function HistoryScreen() {
-  const { theme, isDark } = useAppTheme();
+  const { theme, isDark, currency, incomeModeEnabled } = useSettings();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -21,7 +21,7 @@ export default function HistoryScreen() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editDate, setEditDate] = useState(new Date());
+  const [editType, setEditType] = useState<'expense' | 'income'>('expense');
   const [editIsRecurring, setEditIsRecurring] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   
@@ -61,6 +61,7 @@ export default function HistoryScreen() {
     setEditAmount(item.amount);
     setEditDescription(item.description || '');
     setEditDate(new Date(item.date));
+    setEditType(item.type || 'expense');
     setEditIsRecurring(item.isRecurring || false);
   };
 
@@ -70,6 +71,7 @@ export default function HistoryScreen() {
         amount: editAmount,
         description: editDescription,
         date: editDate.toISOString(),
+        type: editType,
         isRecurring: editIsRecurring
       });
       setEditingExpense(null);
@@ -114,7 +116,9 @@ export default function HistoryScreen() {
           )}
           <Text style={[styles.expenseDate, { color: theme.textSecondary }]}>{dateStr}</Text>
         </View>
-        <Text style={[styles.expenseAmount, { color: theme.text }]}>₹{parseFloat(item.amount).toFixed(0)}</Text>
+        <Text style={[styles.expenseAmount, { color: item.type === 'income' ? '#34C759' : theme.text }]}>
+          {item.type === 'income' ? '+' : ''}{currency}{parseFloat(item.amount).toFixed(0)}
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -189,7 +193,9 @@ export default function HistoryScreen() {
                   {!!editDescription && <Text style={[styles.expenseDescription, { color: theme.textSecondary }]} numberOfLines={1}>{editDescription}</Text>}
                   <Text style={[styles.expenseDate, { color: theme.textSecondary }]}>{editDate.toLocaleDateString('en-GB')}</Text>
                 </View>
-                <Text style={[styles.expenseAmount, { color: theme.text }]}>₹{editAmount}</Text>
+                <Text style={[styles.expenseAmount, { color: editType === 'income' ? '#34C759' : theme.text }]}>
+                  {editType === 'income' ? '+' : ''}{currency}{editAmount}
+                </Text>
               </View>
             </ViewShot>
 
@@ -198,8 +204,19 @@ export default function HistoryScreen() {
               <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '600' }}>Share Receipt</Text>
             </TouchableOpacity>
 
-            <Text style={[styles.label, { color: theme.textSecondary, marginTop: 24 }]}>Amount (₹)</Text>
-            <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={editAmount} onChangeText={setEditAmount} />
+            {incomeModeEnabled && (
+              <View style={[styles.segmentedControl, { backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA', marginTop: 24 }]}>
+                <TouchableOpacity style={[styles.segment, editType === 'expense' && { backgroundColor: theme.card, shadowOpacity: 0.1 }]} onPress={() => setEditType('expense')}>
+                  <Text style={[styles.segmentText, { color: editType === 'expense' ? theme.text : theme.textSecondary }]}>Expense</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.segment, editType === 'income' && { backgroundColor: theme.card, shadowOpacity: 0.1 }]} onPress={() => setEditType('income')}>
+                  <Text style={[styles.segmentText, { color: editType === 'income' ? '#34C759' : theme.textSecondary }]}>Income</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <Text style={[styles.label, { color: theme.textSecondary, marginTop: incomeModeEnabled ? 20 : 24 }]}>Amount ({currency})</Text>
+            <TextInput style={[styles.input, { color: editType === 'income' ? '#34C759' : theme.text, borderColor: theme.border }]} keyboardType="numeric" value={editAmount} onChangeText={setEditAmount} />
             
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>Description</Text>
             <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border }]} value={editDescription} onChangeText={setEditDescription} />
@@ -255,6 +272,9 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700' },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { fontSize: 16, padding: 16, borderRadius: 12, borderWidth: 1, minHeight: 56 },
+  segmentedControl: { flexDirection: 'row', padding: 4, borderRadius: 12 },
+  segment: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  segmentText: { fontSize: 14, fontWeight: '600' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16 },
   searchInput: { flex: 1, marginLeft: 8, fontSize: 16 },
   shareButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12 },

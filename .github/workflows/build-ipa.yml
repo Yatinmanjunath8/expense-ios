@@ -8,6 +8,9 @@ on:
 jobs:
   build-ios:
     runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,7 +50,10 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_IDENTITY=""
+            CODE_SIGNING_IDENTITY="" \
+            GCC_WARN_UNDECLARED_SELECTOR=NO \
+            GCC_WARN_SEND_INVALID_MESSAGE=NO \
+            WARNING_CFLAGS="-Wno-nullability-completeness"
             
       - name: Package into IPA
         run: |
